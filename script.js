@@ -1,148 +1,93 @@
-/**
- * Main theme JavaScript file.
- */
-
-( function( $ ) {
-	'use strict';
-
-// Document ready
-$( document ).ready( function() {
-    const $imageContainer = $('.image-container');
-    const $images = $('.hover-image');
-    const $mainImage = $('.main-image');
-    const $overlayImages = $('.overlay-image');
-    const imagePositions = [];
-    const numTrails = 5; // Number of trailing images
-
-    // Check if elements exist
-    if (!$imageContainer.length || !$images.length || !$mainImage.length || !$overlayImages.length) {
-        console.error('Required elements not found');
-        return;
-    }
-
-    // Initialize image positions array
-    for (let i = 0; i < numTrails; i++) {
-        imagePositions.push({ x: 0, y: 0 });
-    }
-
-    // Initialize GSAP
-    gsap.set($overlayImages, {
-        opacity: 0,
-        scale: 0.8,
-        position: 'absolute',
-        transformOrigin: 'center center',
-        pointerEvents: 'none'
-    });
-
+document.addEventListener('DOMContentLoaded', () => {
+    const imageWrapper = document.querySelector('.image-wrapper');
+    const imagesArray = Array.from(imageWrapper.children);
+    const images = document.querySelectorAll('.floating-image');
     let isMoving = false;
     let moveTimeout;
-    let mouseX = 0;
-    let mouseY = 0;
-    let frame = 0;
+    let lastX = 0;
+    let lastY = 0;    
+    let currentImageIndex = 0;
+    let shuffleInterval; // Store interval ID
 
-    // Animation loop
-    function updateImages() {
-        frame = requestAnimationFrame(updateImages);
+    // Hide all images initially
+    gsap.set(images, {
+        opacity: 0,
+        scale: 1,
+        y: 0
+    });
 
-        // Update positions array
-        for (let i = imagePositions.length - 1; i > 0; i--) {
-            imagePositions[i].x = imagePositions[i - 1].x;
-            imagePositions[i].y = imagePositions[i - 1].y;
-        }
-        imagePositions[0].x = mouseX;
-        imagePositions[0].y = mouseY;
+    const getNextImage = () => {
+        const img = images[currentImageIndex];
+        currentImageIndex = (currentImageIndex + 1) % images.length;
+        return img;
+    };
 
-        // Update image positions with trail effect
-        $overlayImages.each(function(index) {
-            if (index < imagePositions.length) {
-                const position = imagePositions[index];
-                const delay = index * 0.08;
-                const scale = 1 - (index * 0.1);
-                const opacity = 1 - (index * 0.15);
-
-                gsap.to($(this), {
-                    duration: 0.4,
-                    x: position.x,
-                    y: position.y,
-                    scale: scale,
-                    opacity: opacity,
-                    ease: "power2.out",
-                    overwrite: "auto"
-                });
-            }
-        });
-    }
-
-    // Track mouse movement
-    $imageContainer.on('mousemove', function(e) {
-        const rect = $imageContainer[0].getBoundingClientRect();
-        mouseX = e.clientX - rect.left;
-        mouseY = e.clientY - rect.top;
-
-        if (!isMoving) {
-            isMoving = true;
-            frame = requestAnimationFrame(updateImages);
-        }
-
-        // Clear previous timeout
+    const handleMouseMove = (e) => {
         clearTimeout(moveTimeout);
+        isMoving = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
 
-        // Show images
-        gsap.to($overlayImages, {
-            duration: 0.3,
-            visibility: 'visible',
-            ease: "power2.out"
+        gsap.to(images, {
+            opacity: 1,
+            scale: 1,
+            duration: 0
         });
 
-        // Set timeout for stopping
-        moveTimeout = setTimeout(function() {
+        const nextImg = getNextImage();
+        gsap.to(nextImg, {
+            x: e.clientX - (nextImg.offsetWidth / 2),
+            y: e.clientY - (nextImg.offsetHeight / 2),
+            opacity: 1,
+            scale: 1,
+            duration: 0.2,
+            ease: "power2.out",
+        });
+
+        // Start shuffling images if not already started
+        if (!shuffleInterval) {
+            shuffleInterval = setInterval(shuffleImages, 200);
+        }
+
+        moveTimeout = setTimeout(() => {
             isMoving = false;
-            cancelAnimationFrame(frame);
-            fallDown();
-        }, 100);
-    });
+            handleCursorStop();
+        }, 200);
+    };
 
-    // Mouse leave effect
-    $imageContainer.on('mouseleave', function() {
-        isMoving = false;
-        cancelAnimationFrame(frame);
-        
-        gsap.to($overlayImages, {
-            duration: 0.4,
-            opacity: 0,
-            scale: 0.5,
-            stagger: {
-                each: 0.1,
-                from: "end"
-            },
-            ease: "power2.in"
-        });
-    });
+    const handleCursorStop = () => {
+        // Stop shuffling when the mouse stops
+        clearInterval(shuffleInterval);
+        shuffleInterval = null; // Reset interval ID
 
-    // Fall down effect
-    function fallDown() {
-        $overlayImages.each(function(index) {
-            if ($(this).css('opacity') > 0) {
-                const randomX = gsap.utils.random(-150, 150);
-                const randomRotation = gsap.utils.random(-180, 180);
-                const randomDelay = index * 0.1;
-
-                gsap.to($(this), {
-                    duration: 1,
-                    y: '+=400',
-                    x: '+=' + randomX,
-                    rotation: randomRotation,
+        images.forEach((img, index) => {
+            img.style.zIndex = 0;
+            gsap.fromTo(img, 
+                {
+                    x: lastX - (img.offsetWidth / 2),
+                    y: lastY - (img.offsetHeight / 2),
+                    opacity: 1,
+                    scale: 1
+                },
+                {
+                    y: window.innerHeight + 100,
                     opacity: 0,
-                    scale: 0,
-                    delay: randomDelay,
+                    scale: 0.5,
+                    duration: 0.3 + (index * 0.2),
                     ease: "power2.in",
-                    onComplete: function() {
-                        gsap.set($(this), { clearProps: "all" });
-                    }
-                });
-            }
+                    delay: index * 0.05
+                }
+            );
         });
-    }
-} );
+    };
 
-} )( jQuery );
+    function shuffleImages() {
+        for (let i = imagesArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [imagesArray[i], imagesArray[j]] = [imagesArray[j], imagesArray[i]];
+        }
+        imagesArray.forEach(img => imageWrapper.appendChild(img));
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+});
