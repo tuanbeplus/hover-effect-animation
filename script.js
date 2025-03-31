@@ -46,13 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Start shuffling images if not already started
         if (!shuffleInterval) {
-            shuffleInterval = setInterval(shuffleImages, 200);
+            shuffleInterval = setInterval(shuffleImages, 120);
         }
 
         moveTimeout = setTimeout(() => {
             isMoving = false;
             handleCursorStop();
-        }, 200);
+        }, 50);
     };
 
     const handleCursorStop = () => {
